@@ -17,5 +17,5 @@ arvutused automaatselt ning annab kohe tagasisidet.
 
 - Harjutus, kontrolliloogika ja tagasiside: Anni Leosk (VOCO), loodud tehisaru abil.
 - Ülesande lähteandmed on kasutatud autori loal.
-- Harjutus (ülesanne, kood, kontrolliloogika ja tagasiside): [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/ee/), vt fail `LICENSE`.
+- Harjutus (ülesanne, kood, kontrolliloogika ja tagasiside): [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.et), vt fail `LICENSE`.
 - 3D-teek [three.js](https://threejs.org/) — MIT litsents (`LICENSE-three.js.txt`).
