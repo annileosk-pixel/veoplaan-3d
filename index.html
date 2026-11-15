@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Terminalidevaheline vedu — ülesanne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/controls/OrbitControls.js": "./vendor/three/addons/controls/OrbitControls.js",
+    "three/addons/exporters/OBJExporter.js": "./vendor/three/addons/exporters/OBJExporter.js",
+    "three/addons/exporters/GLTFExporter.js": "./vendor/three/addons/exporters/GLTFExporter.js"
+  }
+}
+</script>
+<style>
+  :root{
+    --paper:#f2efe9; --ink:#1d2528; --muted:#5d6a6e; --teal:#0f5a5e; --teal-soft:#e2eeee;
+    --line:#ddd8cf; --card:#ffffff; --warn:#a4442f; --warn-soft:#f7e7e2; --ok:#2f6f4f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:"Source Sans 3",system-ui,sans-serif;color:var(--ink);background:var(--paper);
+       display:grid;grid-template-columns:minmax(0,1fr) 440px;grid-template-rows:100%;height:100vh;overflow:hidden;align-items:stretch;
+       -webkit-text-size-adjust:100%;touch-action:manipulation}
+  three-d-stage:not(:defined){visibility:hidden}
+  #stagewrap{position:relative;min-width:0;display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden}
+  #stage3d{position:relative;flex:1;min-height:0}
+  three-d-stage{width:100%;height:100%;display:block}
+
+  .views{position:absolute;top:14px;left:14px;display:flex;gap:6px;flex-wrap:wrap;z-index:4}
+  .views button{font:600 13px/1 "Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;padding:9px 13px;border-radius:4px;cursor:pointer;
+                background:var(--card);border:1px solid var(--line);color:var(--ink);min-height:36px}
+  .views button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+  .views .sep{width:1px;background:var(--line);margin:2px 3px}
+  .hint{position:absolute;bottom:64px;left:14px;right:14px;pointer-events:none;background:var(--card);
+        border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:13px;line-height:1.45;
+        color:var(--muted);max-width:430px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .hint b{color:var(--ink)}
+
+  #info{position:absolute;top:62px;left:14px;width:248px;background:var(--card);border:1px solid var(--teal);
+        border-radius:4px;padding:12px 14px;box-shadow:0 4px 14px rgba(0,0,0,.12);display:none;z-index:6}
+  #info.show{display:block}
+  #info h4{margin:0 0 2px;font-size:15px}
+  #info .mo{font:500 12px/1.5 "IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--muted)}
+  #info dl{margin:10px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+  #info dt{color:var(--muted)}
+  #info dd{margin:0;font-family:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12.5px}
+  #info .ask{margin:10px 0 0;font-size:12.5px;line-height:1.45;color:var(--teal);border-top:1px solid var(--line);padding-top:8px}
+  #info .x{position:absolute;top:6px;right:8px;border:0;background:none;font-size:19px;line-height:1;
+           color:var(--muted);cursor:pointer;padding:2px 4px}
+
+  /* ——— Laadimisplaan ——— */
+  #planwrap{display:none;flex-direction:column;border-top:1px solid var(--line);background:var(--card);
+            flex:0 0 auto;max-height:50%;min-height:0}
+  body.manual #planwrap{display:flex}
+  body.manual .hint{display:none}
+  .plantabs{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:8px 10px 6px;border-bottom:1px solid var(--line)}
+  .plantabs button{font:600 12px/1 "Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;padding:7px 9px;border-radius:4px;cursor:pointer;
+                   background:#fff;border:1px solid var(--line);color:var(--ink);min-height:30px}
+  .plantabs button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+  .plantabs button[disabled]{opacity:.4;cursor:not-allowed}
+  .plantabs button.danger{border-color:#c58a7a;color:#8f3a26}
+  .plantabs button.danger:not([disabled]):hover{background:#fbeeea}
+  .plantabs .lab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-left:6px}
+  .plantabs .grow{flex:1}
+  .plantabs .cnt{font:500 12px/1 "IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--muted)}
+  .plantabs .cnt.err{color:#8f3a26;font-weight:700;font-family:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:12px}
+  .plandeck{overflow:auto;padding:10px;background:var(--paper);min-height:0}
+  .plandeck svg{display:block;touch-action:none}
+  .planpool{display:flex;gap:5px;overflow-x:auto;padding:7px 10px;border-top:1px solid var(--line);align-items:stretch}
+  .pchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:3px;
+         padding:5px 7px;font-size:11.5px;line-height:1.2;cursor:grab;user-select:none;touch-action:none;white-space:nowrap;flex:none}
+  .pchip .sw{width:10px;height:10px;border-radius:2px;flex:none}
+  .pchip b{font-weight:600}
+  .pchip .n{font-family:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;color:var(--teal);font-weight:600}
+  .pchip .all{border:1px solid var(--line);background:var(--paper);border-radius:3px;padding:4px 6px;
+              font-size:11px;cursor:pointer;color:var(--muted)}
+  .pchip.sel{border-color:var(--teal);box-shadow:0 0 0 2px var(--teal-soft)}
+  .planempty{font-size:12.5px;color:var(--muted);padding:6px 2px}
+  .pghost{position:fixed;z-index:99;pointer-events:none;opacity:.9;box-shadow:0 6px 16px rgba(0,0,0,.22)}
+
+  aside{border-left:1px solid var(--line);background:var(--card);overflow-y:auto;min-height:0;padding:26px 24px 90px;-webkit-overflow-scrolling:touch}
+  h1{font-size:22px;line-height:1.25;margin:0 0 4px;font-weight:700;letter-spacing:-.01em}
+  .sub{font-size:13.5px;color:var(--muted);line-height:1.45;margin:0 0 20px}
+  .task{border-left:4px solid var(--teal);background:var(--teal-soft);padding:14px 16px;border-radius:0 4px 4px 0}
+  .task h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--teal);margin:0 0 7px}
+  .task p{margin:0 0 8px;font-size:14px;line-height:1.55}
+  .task p:last-child{margin:0}
+  h3{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--teal);margin:26px 0 10px}
+  button{font-family:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif}
+  .steps{margin:0;padding-left:20px;font-size:13.5px;line-height:1.55;color:var(--muted)}
+  .steps li{margin-bottom:8px}
+  .steps b{color:var(--ink)}
+  .steps code{font:500 13px/1 "IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;background:var(--teal-soft);color:var(--teal);padding:2px 5px;border-radius:3px}
+
+  .fleet{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .fleet button{font-size:14px;font-weight:600;padding:12px 8px;border-radius:4px;cursor:pointer;min-height:44px;
+                background:var(--teal);border:1px solid var(--teal);color:#fff}
+  .fleet button.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+  .fleet button[disabled]{opacity:.4;cursor:not-allowed}
+
+  .trucks{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .truck{border:1px solid var(--line);border-radius:4px;padding:11px 12px 12px;transition:background .12s,border-color .12s}
+  .truck .thead{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-bottom:9px}
+  .truck .thead b{font-weight:600}
+  .truck .thead span{color:var(--muted);font-size:12.5px}
+  .truck.drop{border-color:var(--teal);background:var(--teal-soft)}
+  .truck.bad{border-color:var(--warn);background:var(--warn-soft)}
+  .truck.good{border-color:var(--ok);background:#eef4f0}
+  .truck.active{box-shadow:0 0 0 2px var(--teal-soft)}
+
+  .bay{display:flex;flex-wrap:wrap;gap:5px;min-height:38px;padding:6px;border:1px dashed var(--line);
+       border-radius:3px;margin-bottom:10px;align-content:flex-start}
+  .bay .empty{font-size:12.5px;color:var(--muted);padding:4px 2px}
+
+  .chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;
+        border-radius:3px;padding:6px 9px;font-size:12.5px;line-height:1.25;cursor:grab;user-select:none;
+        touch-action:none;min-height:32px}
+  .chip .sw{width:10px;height:10px;border-radius:2px;flex:none}
+  .chip b{font-weight:600}
+  .chip .kg{font-family:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .chip.sel{border-color:var(--teal);box-shadow:0 0 0 2px var(--teal-soft)}
+  .chip.ghost{position:fixed;z-index:99;pointer-events:none;opacity:.92;box-shadow:0 6px 16px rgba(0,0,0,.22);cursor:grabbing}
+  #pool{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px dashed var(--line);border-radius:3px;min-height:46px;align-content:flex-start}
+  #pool.drop{border-color:var(--teal);background:var(--teal-soft)}
+  .poolnote{font-size:12.5px;color:var(--muted);margin:0 0 8px;line-height:1.45}
+  body.manual #poolbox{display:none}
+  #manualnote{display:none;font-size:13px;line-height:1.5;color:var(--muted);border:1px dashed var(--line);
+              border-radius:3px;padding:11px 12px}
+  body.manual #manualnote{display:block}
+
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .fields label{display:flex;flex-direction:column;gap:4px;font-size:10.5px;letter-spacing:.04em;
+                text-transform:uppercase;color:var(--muted)}
+  .fields input{font:500 15px/1 "IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;padding:10px 8px;border:1px solid var(--line);
+                border-radius:4px;background:#fff;color:var(--ink);width:100%;min-height:40px}
+  .fields input:focus{outline:2px solid var(--teal);outline-offset:-1px}
+
+  .bars{margin-top:10px;display:flex;flex-direction:column;gap:7px}
+  .bars .b{display:grid;grid-template-columns:62px 1fr;align-items:center;gap:8px;font-size:11px;
+           letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+  .bar{position:relative;height:12px;background:#eceae4;border-radius:2px;overflow:visible}
+  .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--teal);border-radius:2px;transition:width .2s;max-width:100%}
+  .bar i.over{background:var(--warn)}
+  .bar u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);display:none}
+  .bar u.show{display:block}
+  .bar .cap{position:absolute;right:0;top:-3px;bottom:-3px;width:2px;background:var(--line)}
+
+  .fb{font-size:12.5px;line-height:1.5;margin-top:9px;display:none}
+  .fb.show{display:block}
+  .fb .no{color:var(--warn)}
+  .fb .yes{color:var(--ok)}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+  .row2 button{font-size:14px;font-weight:600;padding:13px 8px;border-radius:4px;cursor:pointer;min-height:46px;
+               background:var(--teal);border:1px solid var(--teal);color:#fff}
+  .row2 button.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+  .row2.one{grid-template-columns:1fr}
+  .msg{margin-top:12px;font-size:13.5px;line-height:1.55;border-radius:4px;padding:12px 14px;display:none}
+  .msg.show{display:block}
+  .msg.ok{background:#e6f0ea;border-left:4px solid var(--ok)}
+  .msg.no{background:var(--warn-soft);border-left:4px solid var(--warn)}
+  .legend{display:flex;flex-direction:column;gap:7px;font-size:13.5px}
+  .legend div{display:flex;align-items:center;gap:9px}
+  .sw{width:13px;height:13px;border-radius:2px;flex:none}
+  .sol{font-size:13.5px;line-height:1.6;color:var(--muted)}
+  .sol b{color:var(--ink)}
+  .sol ul{margin:8px 0 0;padding-left:18px}
+  .sol li{margin-bottom:6px}
+
+  .scorebox{margin-top:14px;border:1px solid var(--line);border-radius:4px;padding:14px 16px}
+  .scorebox.ok{border-color:var(--ok);background:#eef4f0}
+  .scorebox.no{border-color:var(--warn);background:var(--warn-soft)}
+  .scorebox .n{font:700 32px/1 "Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:-.02em}
+  .scorebox .n small{font:600 15px/1 "Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--muted)}
+  .scorebox .st{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.45}
+  .rep{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:9px;font-size:13px;line-height:1.5}
+  .rep li{display:grid;grid-template-columns:15px 1fr;gap:9px;align-items:start}
+  .rep .i{font-weight:700;line-height:1.45}
+  .rep li.yes .i{color:var(--ok)}
+  .rep li.no .i{color:var(--warn)}
+  .rep li.warn .i{color:#8a6414}
+
+  @media (max-width:900px){
+    html,body{height:auto}
+    body{display:block;overflow:auto;grid-template-rows:none}
+    #stagewrap{position:sticky;top:0;height:auto;max-height:88vh;background:var(--paper);border-bottom:1px solid var(--line);z-index:5}
+    #stage3d{height:36vh;min-height:220px;flex:none}
+    #planwrap{max-height:none}
+    .hint{display:none}
+    aside{border-left:0;padding:20px 16px 90px}
+  }
+  .credits { margin: 28px 0 4px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.5; color: var(--muted); }
+  .credits a { color: var(--muted); }
+</style>
+<script>
+  /* SEADISTUS: ekspordinupud on moeldud mudeli tegijale, mitte oppijale.
+     Pane true, kui tahad nupud "Download OBJ + MTL" ja "Download GLB" nahtavaks teha. */
+  window.NAITA_EKSPORDINUPPE = false;
+</script>
+</head>
+<body class="manual">
+  <div id="stagewrap">
+    <div id="stage3d">
+      <three-d-stage name="veoplaan" background="#f2efe9"></three-d-stage>
+      <div class="views">
+        <button data-v="iso" class="on">3D</button>
+        <button data-v="top">Pealt</button>
+        <button data-v="side">Küljelt</button>
+        <button data-v="back">Tagant</button>
+        <span class="sep"></span>
+        <button id="replay">▶ Mängi laadimine uuesti</button>
+      </div>
+      <div id="info">
+        <button class="x" id="infox" aria-label="Sulge">×</button>
+        <h4 id="inimi"></h4>
+        <div class="mo" id="imo"></div>
+        <dl id="idl"></dl>
+        <p class="ask" id="iask"></p>
+      </div>
+      <div class="hint"><b>Lohista</b> vaadet pööramiseks · <b>kerimisratas</b> suurendab · <b>klõpsa veosel</b>, et näha mõõte.</div>
+    </div>
+
+    <div id="planwrap">
+      <div class="plantabs" id="plantabs"></div>
+      <div class="plandeck" id="plandeck"><svg id="plan"></svg></div>
+      <div class="planpool" id="planpool"></div>
+    </div>
+  </div>
+
+  <aside>
+    <h1>Mitut veovahendit on vaja?</h1>
+    <p class="sub">Terminalidevaheline vedu · lastiruum 13,6 × 2,45 × 2,65 m · kandevõime 24 000 kg</p>
+
+    <div class="task">
+      <h2>Ülesanne</h2>
+      <p>Terminalis ootab <b>15 saadetist</b>, mis tuleb komplekteerida veovahenditesse ja toimetada järgmisesse terminali. Terminali ei tohi midagi maha jääda.</p>
+      <p><b>Veovahend:</b> poolhaagis, lastiruum <b>13,6 × 2,45 × 2,65 m</b>, kandevõime <b>24 000 kg</b>. Autosid võib kasutada kuni kuus.</p>
+      <p><b>Laadimismeeter (ldm)</b> arvestatakse standardlaiuse <b>2,4 m</b> järgi: ldm = põrandale laotud kauba pind ÷ 2,4. Üks auto on <b>13,6 ldm</b>. Lastiruumi tegelik 2,45 m laius on ehituslik mõõt — arvutustes seda ei kasutata. <b>Virna laotud kaup põrandat ei võta</b>, seega ldm-i ta ei kasvata.</p>
+      <p><b>Laadimine:</b> veoseid tohib pöörata 90° ja laduda üksteise peale, kui alumine veos selle kannab. Kaup peab jääma lastiruumi mõõtudesse ning auto kandevõime ja laadimismeetrite piiresse.</p>
+      <p>Leia <b>väikseim vajalik arv</b> autosid, jaga saadetised nende vahel ja arvuta iga auto kohta kaal, ldm ning kaalu- ja mahutäituvus. Seejärel esita töö.</p>
+    </div>
+
+    <h3>Autopark</h3>
+    <div class="fleet">
+      <button id="add">+ Lisa auto</button>
+      <button id="del" class="ghost">− Eemalda auto</button>
+    </div>
+    <div class="trucks" id="trucks"></div>
+
+    <div id="manualnote"><b>Laadimine:</b> lohista saadetis alumiselt ribalt laadimisplaanile või puuduta seda — siis läheb ta esimesse vabasse kohta. Teise kihi jaoks vali <b>kiht 2</b>; sinna tohib laduda ainult millegi peale.<br><br>
+      Veosed <b>ei saa üksteise peale sattuda</b>: kui lased kauba hõivatud kohale, libiseb ta lähimasse vabasse kohta, ja servad klõpsatavad magnetiga naaberkauba või seina külge. Punase viirutusega veos seisab ilma toeta. <b>Torude peale muud kaupa ei tohi laduda</b> — ümar pind ei kanna. Torud ise laotakse <b>püramiidi</b>. Ümar toru ei püsi teise toru otsas — ta veereb kohe <b>kahe toru vahelisse lohku</b>, seega iga ülemise rea toru istub kahe alumise vahel, pool toru võrra nihkes. Plaan paneb torud ise lohku ja mujale neid panna ei saa. Kümme toru annab virna <b>4+3+2+1</b> — alumine rida 4 × 0,6 = <b>2,4 m</b>.<br><br>
+      <b>Ümber mõtlesid?</b> Klõpsa veosel plaanil ja vajuta tema nurgas olevat punast <b>×</b> — või kasuta riba nuppu <b>✕ Terminali tagasi</b> (klahv Delete). Auto kaardil olevale kaubakiibile klõpsates tuleb üks tükk tagasi terminali. <b>Tühjenda auto</b> saadab korraga tagasi kogu valitud auto kauba.</div>
+
+    <div class="row2 one">
+      <button id="submit">Esita Moodle’is</button>
+    </div>
+    <div id="report"></div>
+
+    <h3>Värvide tähendus</h3>
+    <div class="legend" id="legend"></div>
+
+    <p class="credits">© 2026 Anni Leosk · <a href="https://creativecommons.org/licenses/by-sa/3.0/ee/" target="_blank" rel="noopener">CC BY-SA 3.0</a><br>
+      Ülesande lähteandmed on kasutatud autori loal. 3D-teek <a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a> (MIT).</p>
+  </aside>
+
+  <script>
+    // SCORM 1.2 — kui leht avatakse Moodle'is, salvestame tulemuse; muidu ei tee midagi.
+    window.SCORM = (function () {
+      let api = null, on = false;
+      function find(win, d) {
+        try {
+          while (win && d < 10) { if (win.API) return win.API; win = win.parent === win ? null : win.parent; d++; }
+        } catch (e) { /* cross-origin raam — LMS-i pole */ }
+        return null;
+      }
+      try { api = find(window, 0) || (window.opener ? find(window.opener, 0) : null); } catch (e) { api = null; }
+      try {
+        if (api && api.LMSInitialize('') !== 'false') {
+          on = true;
+          api.LMSSetValue('cmi.core.lesson_status', 'incomplete');
+          api.LMSCommit('');
+          window.addEventListener('unload', () => { try { api.LMSFinish(''); } catch (e) {} });
+        }
+      } catch (e) { on = false; }
+      return {
+        aktiivne: on,
+        tulemus(ok, skoor) {
+          if (!on) return;
+          try {
+            api.LMSSetValue('cmi.core.lesson_status', ok ? 'completed' : 'incomplete');
+            api.LMSSetValue('cmi.core.score.raw', String(skoor));
+            api.LMSSetValue('cmi.core.score.min', '0');
+            api.LMSSetValue('cmi.core.score.max', '100');
+            api.LMSCommit('');
+          } catch (e) { /* LMS ei vastanud */ }
+        },
+      };
+    })();
+    window.SCORM = window.SCORM || { aktiivne: false, tulemus() {} };
+  </script>
+  <script src="./three-d-stage.js"></script>
+  <script type="module">
+    import {
+      buildFleet, buildTrucks, ldmOf, SHIPMENTS, BY_ID, MATS, DECK, TORUD,
+      tukke, tykiPind, pohjaPind, KANDEVOIME, LDM_LAIUS, LDM_MAX, KOGUKAAL, KOGU_LDM, MIN_AUTOSID,
+    } from './cargo-model.js';
+
+    const stage = document.querySelector('three-d-stage');
+    const { THREE } = await stage.ready;
+
+    const MAX = 6, SNAP = 0.05, EPS = 1e-6;
+    const fmt = (n) => n.toLocaleString('et-EE', { useGrouping: 'always' }).replace(/\u00A0/g, ' ');
+    const dec = (n, k = 1) => n.toFixed(k).replace('.', ',');
+    const num = (s) => { const v = parseFloat(String(s).replace(',', '.').replace(/\s/g, '')); return isNaN(v) ? null : v; };
+    const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+    const snap = (v) => Math.round(v / SNAP) * SNAP;
+
+    let fleet = 1, picked = null;
+    const manual = true;
+    const assign = {};
+    SHIPMENTS.forEach((s) => { assign[s.id] = 0; });
+    const answers = {};
+
+    // Käsitsi laadimise olek: iga paigutatud tükk on eraldi kirje.
+    let placed = [];            // {key, sid, truck, x, z, rot, layer}
+    let planTruck = 1, planLayer = 0, planZoom = 1, selKey = null, seq = 0;
+
+    const dimsOf = (p) => { const s = BY_ID[p.sid]; return p.rot ? [s.w, s.l] : [s.l, s.w]; };
+    const jaanud = (sid) => tukke(BY_ID[sid]) - placed.filter((p) => p.sid === sid).length;
+
+    document.getElementById('legend').innerHTML = Object.values(MATS).map((m) =>
+      `<div><span class="sw" style="background:${hex(m.color)}"></span>${m.label}</div>`).join('');
+
+    // ——— 3D vaatenurgad ———
+    const DIRS = { iso: [1, 0.55, 1.25], top: [0.001, 1, 0.02], side: [0, 0.14, 1], back: [1, 0.2, 0.03] };
+    let view = 'iso';
+    function applyView() {
+      const obj = stage._object; if (!obj) return;
+      const box = new THREE.Box3().setFromObject(obj);
+      if (box.isEmpty()) return;
+      const sph = box.getBoundingSphere(new THREE.Sphere());
+      const d = (sph.radius / Math.tan((stage._camera.fov * Math.PI) / 360)) * 1.3;
+      const dir = new THREE.Vector3(...DIRS[view]).normalize();
+      stage._camera.position.copy(sph.center).add(dir.multiplyScalar(d));
+      stage._camera.near = Math.max(d / 100, 0.01);
+      stage._camera.far = d * 100;
+      stage._camera.updateProjectionMatrix();
+      stage._controls.target.copy(sph.center);
+      stage._controls.update();
+    }
+    document.querySelectorAll('.views button[data-v]').forEach((b) => b.addEventListener('click', () => {
+      view = b.dataset.v;
+      document.querySelectorAll('.views button[data-v]').forEach((o) => o.classList.toggle('on', o === b));
+      applyView();
+    }));
+
+    // ——— Laadimisanimatsioon ———
+    let animId = 0;
+    function animateLoad(root) {
+      const pieces = (root && root.userData.cargo || []).slice();
+      if (!pieces.length) return;
+      pieces.forEach((p) => {
+        const b = new THREE.Box3().setFromObject(p);
+        p.userData.sortKey = [Math.round(p.parent.position.z * 10), b.min.y, b.min.x];
+      });
+      pieces.sort((a, b) => {
+        const A = a.userData.sortKey, B = b.userData.sortKey;
+        return A[0] - B[0] || A[1] - B[1] || A[2] - B[2];
+      });
+      const step = Math.min(90, 2200 / pieces.length), dur = 420, drop = 5.5;
+      pieces.forEach((p, i) => { p.position.y = drop; p.userData.t0 = i * step; });
+      const id = ++animId, t0 = performance.now();
+      (function tick(now) {
+        if (id !== animId) return;
+        const t = (now || performance.now()) - t0;
+        let done = true;
+        for (const p of pieces) {
+          const k = Math.min(1, Math.max(0, (t - p.userData.t0) / dur));
+          if (k < 1) done = false;
+          p.position.y = drop * Math.pow(1 - k, 3);
+        }
+        if (!done) requestAnimationFrame(tick);
+        else pieces.forEach((p) => { p.position.y = 0; });
+      })(t0);
+    }
+
+    // ——— Klõps veosel 3D-s ———
+    const ray = new THREE.Raycaster(), pt = new THREE.Vector2();
+    const info = document.getElementById('info');
+    const canvas = stage.shadowRoot.querySelector('canvas');
+    let down3d = null;
+    canvas.addEventListener('pointerdown', (e) => { down3d = { x: e.clientX, y: e.clientY }; });
+    canvas.addEventListener('pointerup', (e) => {
+      if (!down3d || Math.hypot(e.clientX - down3d.x, e.clientY - down3d.y) > 6) { down3d = null; return; }
+      down3d = null;
+      const r = canvas.getBoundingClientRect();
+      pt.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      pt.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+      ray.setFromCamera(pt, stage._camera);
+      for (const h of ray.intersectObject(stage._object, true)) {
+        let o = h.object;
+        while (o && !(o.userData && o.userData.cargo === true)) o = o.parent;
+        if (o) { showInfo(o.userData); return; }
+      }
+      info.classList.remove('show');
+    });
+    document.getElementById('infox').addEventListener('click', () => info.classList.remove('show'));
+
+    function showInfo(u) {
+      const s = BY_ID[u.sid];
+      document.getElementById('inimi').textContent = u.nimi;
+      document.getElementById('imo').textContent = u.mo;
+      document.getElementById('idl').innerHTML = s ? `
+        <dt>Tükke</dt><dd>${s.tube ? '10 toru' : s.qty + ' tk'}</dd>
+        <dt>Kaal kokku</dt><dd>${fmt(s.kg)} kg</dd>
+        <dt>Ühe tüki alus</dt><dd>${dec(s.l, 2)} × ${dec(s.w, 2)} m</dd>
+        <dt>Kõrgus</dt><dd>${dec(s.h, 2)} m</dd>` : '';
+      document.getElementById('iask').style.display = 'none';
+      info.classList.add('show');
+    }
+
+    // ——— Auto seis ———
+    function stateOf(i) {
+      if (!manual) {
+        const mine = SHIPMENTS.filter((s) => assign[s.id] === i);
+        return { i, mine, n: mine.length, kg: mine.reduce((a, s) => a + s.kg, 0), ldm: ldmOf(mine) };
+      }
+      const ps = placed.filter((p) => p.truck === i);
+      let kg = 0, pind = 0;
+      const ids = new Set();
+      ps.forEach((p) => {
+        const s = BY_ID[p.sid];
+        kg += s.kg / tukke(s);
+        // Laadimismeetrid arvestatakse ainult PÕRANDALE laotud kauba järgi.
+        // Teisele kihile virna pandud tükk ei võta põrandat, seega ldm-i ei kasva.
+        if (p.layer === 0) pind += pohjaPind(s);
+        ids.add(s.id);
+      });
+      return { i, mine: SHIPMENTS.filter((s) => ids.has(s.id)), n: ps.length, kg, ldm: pind / LDM_LAIUS };
+    }
+
+    // ——— Käsitsi paigutuse geomeetria ———
+    function overlaps(a, b) {
+      return a.x < b.x + b.L - EPS && a.x + a.L > b.x + EPS && a.z < b.z + b.W - EPS && a.z + a.W > b.z + EPS;
+    }
+    function rectOf(p) { const [L, W] = dimsOf(p); return { x: p.x, z: p.z, L, W }; }
+    function hits(truck, layer, r, skipKey) {
+      return placed.some((q) => q.truck === truck && q.layer === layer && q.key !== skipKey && overlaps(r, rectOf(q)));
+    }
+    /** Torude ümar pealispind ei kanna muud kaupa. */
+    function overTube(truck, layer, r, sid) {
+      if (!layer || (sid && BY_ID[sid].tube)) return false;
+      return placed.some((q) => q.truck === truck && q.layer < layer && BY_ID[q.sid].tube && overlaps(r, rectOf(q)));
+    }
+    function blokeeritud(truck, layer, r, skipKey, sid) {
+      return hits(truck, layer, r, skipKey) || overTube(truck, layer, r, sid);
+    }
+    /** Ümar toru ei püsi teise toru peal — ta veereb kahe toru vahelisse lohku.
+     *  Lohu keskjoon on kahe kõrvuti toru puutekoht, seega lohus istuva toru
+     *  z on täpselt pool toru laiust (0,3 m) alumise toru omast suurem ja
+     *  tema mõlemal pool peab olema alumise kihi toru. */
+    function toruLaius() { return SHIPMENTS.find((x) => x.tube).w; }
+    function toruLohuZ(truck, layer, skipKey) {
+      if (!layer) return null;
+      const W = toruLaius();
+      const all = placed.filter((q) => q.truck === truck && q.layer === layer - 1
+        && BY_ID[q.sid].tube && q.key !== skipKey);
+      const zs = [];
+      all.forEach((a) => all.forEach((b) => {
+        if (Math.abs((b.z - a.z) - W) > 0.02) return;
+        const z = +(a.z + W / 2).toFixed(2);
+        if (!zs.some((v) => Math.abs(v - z) < 0.01)) zs.push(z);
+      }));
+      return zs.sort((x, y) => x - y);
+    }
+    /** Ühepikkused torud laotakse virnas otsad kohakuti — ülemise rea toru
+     *  x tuleb alumise rea toru omast. */
+    function toruAlusX(truck, layer, skipKey) {
+      if (!layer) return null;
+      const xs = [];
+      placed.filter((q) => q.truck === truck && q.layer === layer - 1
+        && BY_ID[q.sid].tube && q.key !== skipKey)
+        .forEach((q) => { if (!xs.some((v) => Math.abs(v - q.x) < 0.01)) xs.push(q.x); });
+      return xs.sort((a, b) => a - b);
+    }
+    /** Kas see toru istub päriselt lohus — kaks alumist toru, üks kummalgi pool. */
+    function toruLohus(p) {
+      const s = BY_ID[p.sid];
+      if (!s.tube || !p.layer) return true;
+      const W = s.w, r = rectOf(p);
+      const all = placed.filter((q) => q.truck === p.truck && q.layer === p.layer - 1
+        && BY_ID[q.sid].tube && q.key !== p.key
+        && Math.min(r.x + r.L, q.x + dimsOf(q)[0]) - Math.max(r.x, q.x) > 0.5);
+      const on = (dz) => all.some((q) => Math.abs(q.z - (p.z + dz)) < 0.02);
+      return on(-W / 2) && on(W / 2);
+    }
+
+    function findSpot(truck, layer, L, W, sid) {
+      const nx = Math.floor((DECK.L - L) / SNAP + EPS), nz = Math.floor((DECK.W - W) / SNAP + EPS);
+      if (nx < 0 || nz < 0) return null;
+      const tube = sid && BY_ID[sid] && BY_ID[sid].tube;
+      const lohud = tube ? toruLohuZ(truck, layer, null) : null;
+      const alusX = tube ? toruAlusX(truck, layer, null) : null;
+      const zList = lohud || Array.from({ length: nz + 1 }, (_, j) => +(j * SNAP).toFixed(2));
+      const xList = (alusX && alusX.length) ? alusX
+        : Array.from({ length: nx + 1 }, (_, i) => +(i * SNAP).toFixed(2));
+      for (const x of xList) {
+        if (x < -EPS || x + L > DECK.L + EPS) continue;
+        for (const z of zList) {
+          if (z < -EPS || z + W > DECK.W + EPS) continue;
+          if (!blokeeritud(truck, layer, { x, z, L, W }, null, sid)) return { x, z };
+        }
+      }
+      return null;
+    }
+    /** Magnetiga joondus: naaberveose serv, sein või sama joon. */
+    const MAG = 0.14;
+    function magnet(truck, layer, key, x, z, L, W, sid) {
+      const tube = sid && BY_ID[sid] && BY_ID[sid].tube;
+      const lohud = tube ? toruLohuZ(truck, layer, key) : null;
+      const alusX = tube ? toruAlusX(truck, layer, key) : null;
+      const xs = (alusX && alusX.length) ? alusX.slice() : [0, DECK.L - L];
+      const zs = lohud && lohud.length ? lohud.slice() : [0, DECK.W - W];
+      placed.filter((q) => q.truck === truck && q.layer === layer && q.key !== key).forEach((q) => {
+        const [QL, QW] = dimsOf(q);
+        if (!alusX) xs.push(q.x + QL, q.x - L, q.x, q.x + QL - L);
+        if (!lohud) zs.push(q.z + QW, q.z - W, q.z, q.z + QW - W);
+      });
+      let bx = x, bz = z, dx = MAG, dz = MAG;
+      xs.forEach((v) => { const d = Math.abs(v - x); if (d < dx) { dx = d; bx = v; } });
+      zs.forEach((v) => { const d = Math.abs(v - z); if (d < dz) { dz = d; bz = v; } });
+      return {
+        x: +Math.max(0, Math.min(DECK.L - L, bx)).toFixed(2),
+        z: +Math.max(0, Math.min(DECK.W - W, bz)).toFixed(2),
+      };
+    }
+    /** Lähim vaba koht antud punktile — sinna veos lahtilaskmisel hüppab. */
+    function nearestSpot(truck, layer, L, W, x0, z0, skipKey, sid) {
+      const nx = Math.floor((DECK.L - L) / SNAP + EPS), nz = Math.floor((DECK.W - W) / SNAP + EPS);
+      if (nx < 0 || nz < 0) return null;
+      const tube = sid && BY_ID[sid] && BY_ID[sid].tube;
+      const lohud = tube ? toruLohuZ(truck, layer, skipKey) : null;
+      const alusX = tube ? toruAlusX(truck, layer, skipKey) : null;
+      const zList = lohud || Array.from({ length: nz + 1 }, (_, j) => +(j * SNAP).toFixed(2));
+      const xList = (alusX && alusX.length) ? alusX
+        : Array.from({ length: nx + 1 }, (_, i) => +(i * SNAP).toFixed(2));
+      let best = null;
+      for (const x of xList) {
+        if (x < -EPS || x + L > DECK.L + EPS) continue;
+        for (const z of zList) {
+          if (z < -EPS || z + W > DECK.W + EPS) continue;
+          const d = (x - x0) * (x - x0) + (z - z0) * (z - z0);
+          if (best && d >= best.d) continue;
+          if (!blokeeritud(truck, layer, { x, z, L, W }, skipKey, sid)) best = { x, z, d };
+        }
+      }
+      return best;
+    }
+    /** Lahtilaskmine: kattuv veos nihkub lähimasse vabasse kohta. */
+    function settle(p, orig) {
+      const [L, W] = dimsOf(p);
+      const r = rectOf(p);
+      const sees = r.x >= -EPS && r.z >= -EPS && r.x + L <= DECK.L + EPS && r.z + W <= DECK.W + EPS;
+      // Ümar toru ei jää kuhu tahes seisma: kui ta ei istu kahe alumise toru
+      // vahelises lohus, veereb ta lähimasse lohku ise. Kui ühtegi lohku ei
+      // ole, ei saa teda sellele kihile üldse panna.
+      if (BY_ID[p.sid].tube && p.layer && !toruLohus(p)) {
+        const n = nearestSpot(p.truck, p.layer, L, W, p.x, p.z, p.key, p.sid);
+        if (n) {
+          p.x = n.x; p.z = n.z;
+          flash('Toru veeres kahe alumise toru vahelisse lohku — ümar pind ei hoia teda mujal paigal.');
+          return true;
+        }
+        placed = placed.filter((q) => q !== p);
+        if (selKey === p.key) selKey = null;
+        flash('Toru ei püsi teise toru otsas. Sellel kihil ei ole ühtegi lohku, kuhu ta veereks — lao alumine rida esmalt täis.');
+        return false;
+      }
+      if (sees && !blokeeritud(p.truck, p.layer, r, p.key, p.sid)) return true;
+      if (overTube(p.truck, p.layer, r, p.sid)) flash('Torude ümar pealispind ei kanna kaupa — sinna ei tohi midagi laduda.');
+      const n = nearestSpot(p.truck, p.layer, L, W, p.x, p.z, p.key, p.sid);
+      if (n) { p.x = n.x; p.z = n.z; return true; }
+      if (orig) { p.x = orig.x; p.z = orig.z; return true; }
+      placed = placed.filter((q) => q !== p);
+      if (selKey === p.key) selKey = null;
+      flash('Sellel kihil ei ole enam vaba põrandat — veos läks terminali tagasi. Vali teine kiht või teine auto.');
+      return false;
+    }
+
+    /** Kihi kõrgus: kõrgeim asi, mis selle veose alla jääb. */
+    function baseY(p) {
+      if (p.layer === 0) return 0;
+      const r = rectOf(p);
+      let y = 0;
+      placed.filter((q) => q.truck === p.truck && q.layer < p.layer && overlaps(r, rectOf(q)))
+        .forEach((q) => { y = Math.max(y, baseY(q) + BY_ID[q.sid].h); });
+      return y;
+    }
+    function toetatud(p) {
+      if (p.layer === 0) return true;
+      const r = rectOf(p);
+      const tube = BY_ID[p.sid].tube;
+      const alla = placed.filter((q) => q.truck === p.truck && q.layer < p.layer
+        && overlaps(r, rectOf(q)) && (tube || !BY_ID[q.sid].tube));
+      if (!alla.length) return false;
+      const kaetud = alla.reduce((a, q) => {
+        const b = rectOf(q);
+        return a + Math.max(0, Math.min(r.x + r.L, b.x + b.L) - Math.max(r.x, b.x)) *
+                   Math.max(0, Math.min(r.z + r.W, b.z + b.W) - Math.max(r.z, b.z));
+      }, 0);
+      return kaetud >= r.L * r.W * 0.5;
+    }
+    function probleem(p) {
+      const r = rectOf(p);
+      if (r.x < -EPS || r.z < -EPS || r.x + r.L > DECK.L + EPS || r.z + r.W > DECK.W + EPS) return 'väljas';
+      if (hits(p.truck, p.layer, r, p.key)) return 'kattub';
+      if (overTube(p.truck, p.layer, r, p.sid)) return 'torude peal';
+      if (!toetatud(p)) return 'õhus';
+      if (!toruLohus(p)) return 'toru ei ole lohus';
+      if (baseY(p) + BY_ID[p.sid].h > DECK.H + EPS) return 'liiga kõrge';
+      return null;
+    }
+
+    function manualTrucks() {
+      return Array.from({ length: fleet }, (_, k) => {
+        const id = k + 1, items = [], tubes = [];
+        let tubeX = 3.0;
+        placed.filter((p) => p.truck === id).sort((a, b) => a.layer - b.layer).forEach((p) => {
+          const s = BY_ID[p.sid], [L, W] = dimsOf(p), y = baseY(p);
+          if (s.tube) {
+            tubes.push([y + 0.3, p.z + 0.3, p.x + 3.0]);
+            return;
+          }
+          items.push({ n: p.key, sid: p.sid, m: s.m, l: L - 0.02, w: W - 0.02, h: s.h, x: p.x + 0.01, z: p.z + 0.01, y });
+        });
+        return { id, items, tubes, tubeX };
+      });
+    }
+
+    // ——— Laadimisplaani joonis ———
+    const svg = document.getElementById('plan');
+    const VB = { x: -0.2, y: -0.2, w: DECK.L + 0.4, h: DECK.W + 0.4 };
+    let scale = 40;
+    function drawPlan() {
+      const deck = document.getElementById('plandeck');
+      const avail = Math.max(320, deck.clientWidth - 24);
+      scale = (avail / VB.w) * planZoom;
+      const W = VB.w * scale, H = VB.h * scale;
+      svg.setAttribute('width', W); svg.setAttribute('height', H);
+      svg.setAttribute('viewBox', `${VB.x} ${VB.y} ${VB.w} ${VB.h}`);
+      const sw = 1 / scale;
+
+      let g = `<defs><pattern id="hatch" width="0.2" height="0.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="0.2" stroke="#a4442f" stroke-width="0.07"/></pattern></defs>`;
+      g += `<rect x="0" y="0" width="${DECK.L}" height="${DECK.W}" fill="#f7f5f0" stroke="#1d2528" stroke-width="${sw * 2}"/>`;
+      for (let m = 1; m < DECK.L; m++) {
+        g += `<line x1="${m}" y1="0" x2="${m}" y2="${DECK.W}" stroke="#ddd8cf" stroke-width="${sw}"/>`;
+      }
+      g += `<text x="0.12" y="${DECK.W + 0.16}" font-size="${Math.max(0.16, 9 / scale)}" fill="#5d6a6e">esisein</text>`;
+      g += `<text x="${DECK.L - 0.12}" y="${DECK.W + 0.16}" text-anchor="end" font-size="${Math.max(0.16, 9 / scale)}" fill="#5d6a6e">tagauks · 13,6 m</text>`;
+
+      const mine = placed.filter((p) => p.truck === planTruck);
+      // all kihid tuhmilt, aktiivne kiht täisvärviga
+      [...mine].sort((a, b) => a.layer - b.layer).forEach((p) => {
+        const s = BY_ID[p.sid], [L, W] = dimsOf(p);
+        const act = p.layer === planLayer;
+        const err = probleem(p);
+        const fill = hex(MATS[s.m].color);
+        g += `<g data-key="${p.key}" style="cursor:${act ? 'grab' : 'default'}">
+          <rect x="${p.x}" y="${p.z}" width="${L}" height="${W}" rx="${0.03}"
+                fill="${fill}" fill-opacity="${act ? 0.92 : 0.28}"
+                stroke="${err ? '#a4442f' : selKey === p.key ? '#0f5a5e' : '#2f3a40'}"
+                stroke-width="${sw * (err || selKey === p.key ? 3 : 1.4)}"/>
+          ${err ? `<rect x="${p.x}" y="${p.z}" width="${L}" height="${W}" rx="0.03" fill="url(#hatch)" fill-opacity="0.55" pointer-events="none"/>` : ''}
+          <title>${s.nimi} — ${s.mo}${err ? ' (' + err + ')' : ''}</title></g>`;
+      });
+      const sel = placed.find((p) => p.key === selKey && p.truck === planTruck && p.layer === planLayer);
+      if (sel) {
+        const [L, W] = dimsOf(sel);
+        const r = Math.min(Math.min(L, W) / 2.4, Math.max(0.1, 13 / scale));
+        const cx = sel.x + L - r * 1.05, cy = sel.z + r * 1.05;
+        g += `<g data-del="${sel.key}" style="cursor:pointer">
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="#a4442f" stroke="#fff" stroke-width="${sw * 1.6}"/>
+          <path d="M ${cx - r * 0.4} ${cy - r * 0.4} L ${cx + r * 0.4} ${cy + r * 0.4} M ${cx + r * 0.4} ${cy - r * 0.4} L ${cx - r * 0.4} ${cy + r * 0.4}"
+                stroke="#fff" stroke-width="${sw * 2}" stroke-linecap="round"/>
+          <title>Saada see veos terminali tagasi</title></g>`;
+      }
+      svg.innerHTML = g;
+    }
+
+    function planXY(e) {
+      const r = svg.getBoundingClientRect();
+      return { x: (e.clientX - r.left) / scale + VB.x, z: (e.clientY - r.top) / scale + VB.y };
+    }
+
+    function renderPlanUI() {
+      const layers = [0, 1, 2, 3];
+      document.getElementById('plantabs').innerHTML =
+        Array.from({ length: fleet }, (_, k) => `<button data-pt="${k + 1}" class="${k + 1 === planTruck ? 'on' : ''}">Auto ${k + 1}</button>`).join('')
+        + `<span class="lab">kiht</span>`
+        + layers.map((l) => `<button data-pl="${l}" class="${l === planLayer ? 'on' : ''}">${l + 1}</button>`).join('')
+        + `<button id="rot" ${selKey ? '' : 'disabled'}>↻ Pööra</button>`
+        + `<button id="rm" class="danger" ${selKey ? '' : 'disabled'}>✕ Terminali tagasi</button>`
+        + `<button id="zoom">${planZoom === 1 ? '⊕ Suurenda' : '⊖ Vähenda'}</button>`
+        + `<button id="clr" class="danger">⌫ Tühjenda auto</button>`
+        + (() => {
+            const v = placed.filter((p) => p.truck === planTruck && probleem(p)).length;
+            return v ? `<span class="cnt err">⚠ ${v} veos seisab ilma toeta</span>` : '';
+          })();
+
+      const free = SHIPMENTS.filter((s) => jaanud(s.id) > 0);
+      document.getElementById('planpool').innerHTML = free.length
+        ? free.map((s) => `<span class="pchip${picked === s.id ? ' sel' : ''}" data-sid="${s.id}">
+            <span class="sw" style="background:${hex(MATS[s.m].color)}"></span>
+            <b>${s.nimi}</b> <span class="n">×${jaanud(s.id)}</span>
+            <span style="color:var(--muted)">${dec(s.l, 2)} × ${dec(s.w, 2)} m · ${fmt(s.kg)} kg</span>
+            ${jaanud(s.id) > 1 ? '<button class="all" data-all="' + s.id + '">⤓ kõik</button>' : ''}</span>`).join('')
+        : '<span class="planempty">Kogu kaup on autodesse laotud. Täida arvutused paremal ja esita töö.</span>';
+      drawPlan();
+    }
+
+    document.getElementById('plantabs').addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.pt) { planTruck = Number(b.dataset.pt); selKey = null; }
+      else if (b.dataset.pl) { planLayer = Number(b.dataset.pl); }
+      else if (b.id === 'rot' && selKey) {
+        const p = placed.find((x) => x.key === selKey);
+        if (BY_ID[p.sid].tube) { flash('6 m toru ei mahu risti lastiruumi — torud jäävad alati piki autot.'); renderPlanUI(); return; }
+        p.rot = !p.rot;
+        const [L, W] = dimsOf(p);
+        p.x = Math.min(p.x, DECK.L - L); p.z = Math.min(p.z, DECK.W - W);
+        refresh();
+      } else if (b.id === 'rm' && selKey) { placed = placed.filter((x) => x.key !== selKey); selKey = null; refresh(); }
+      else if (b.id === 'zoom') { planZoom = planZoom === 1 ? 2 : 1; }
+      else if (b.id === 'clr') { placed = placed.filter((x) => x.truck !== planTruck); selKey = null; refresh(); }
+      renderPlanUI();
+    });
+
+    document.getElementById('planpool').addEventListener('click', (e) => {
+      const all = e.target.closest('[data-all]'); if (!all) return;
+      e.stopPropagation();
+      const sid = all.dataset.all, s = BY_ID[sid];
+      let n = jaanud(sid), lisatud = 0;
+      while (n-- > 0) {
+        let spot = findSpot(planTruck, planLayer, s.l, s.w, sid), rot = false;
+        if (!spot) { spot = findSpot(planTruck, planLayer, s.w, s.l, sid); rot = true; }
+        if (!spot) break;
+        placed.push({ key: 'p' + (++seq), sid, truck: planTruck, x: spot.x, z: spot.z, rot, layer: planLayer });
+        lisatud++;
+      }
+      if (!lisatud) flash('Sellesse autosse ei mahu sellel kihil enam ühtegi tükki. Vali teine kiht või teine auto.');
+      refresh(); renderPlanUI();
+    });
+
+    // ——— Lohistamine laadimisplaanil ———
+    let pd = null;
+    function startDrag(e, sid, key) {
+      const s = BY_ID[sid];
+      const ex = placed.find((p) => p.key === key);
+      const rot = ex ? ex.rot : false;
+      const [L, W] = rot ? [s.w, s.l] : [s.l, s.w];
+      const m = planXY(e);
+      pd = { sid, key, rot, L, W, offX: ex ? m.x - ex.x : L / 2, offZ: ex ? m.z - ex.z : W / 2, moved: false,
+             orig: ex ? { x: ex.x, z: ex.z } : null };
+      if (!ex) { pd.offX = L / 2; pd.offZ = W / 2; }
+      svg.setPointerCapture && svg.setPointerCapture(e.pointerId);
+    }
+    svg.addEventListener('pointerdown', (e) => {
+      const del = e.target.closest('g[data-del]');
+      if (del) {
+        placed = placed.filter((x) => x.key !== del.dataset.del);
+        selKey = null; refresh(); renderPlanUI();
+        e.preventDefault(); return;
+      }
+      const g = e.target.closest('g[data-key]');
+      if (!g) { selKey = null; renderPlanUI(); return; }
+      const p = placed.find((x) => x.key === g.dataset.key);
+      if (!p || p.layer !== planLayer) return;
+      selKey = p.key;
+      startDrag(e, p.sid, p.key);
+      renderPlanUI();
+      e.preventDefault();
+    });
+    svg.addEventListener('pointermove', (e) => {
+      if (!pd) return;
+      pd.moved = true;
+      const m = planXY(e);
+      let x = snap(m.x - pd.offX), z = snap(m.z - pd.offZ);
+      x = Math.max(0, Math.min(DECK.L - pd.L, x));
+      z = Math.max(0, Math.min(DECK.W - pd.W, z));
+      ({ x, z } = magnet(planTruck, planLayer, pd.key, x, z, pd.L, pd.W, pd.sid));
+      let p = placed.find((q) => q.key === pd.key);
+      if (!p) {
+        p = { key: pd.key = 'p' + (++seq), sid: pd.sid, truck: planTruck, x, z, rot: pd.rot, layer: planLayer };
+        placed.push(p);
+        selKey = p.key;
+      } else { p.x = x; p.z = z; }
+      drawPlan();
+      e.preventDefault();
+    });
+    const endDrag = () => {
+      if (!pd) return;
+      const p = placed.find((q) => q.key === pd.key);
+      if (p) settle(p, pd.orig);
+      pd = null; refresh(); renderPlanUI();
+    };
+    svg.addEventListener('pointerup', endDrag);
+    svg.addEventListener('pointercancel', endDrag);
+
+    // pooli kiibilt plaanile lohistamine
+    document.getElementById('planpool').addEventListener('pointerdown', (e) => {
+      const chip = e.target.closest('.pchip');
+      if (!chip || e.target.closest('[data-all]')) return;
+      const sid = chip.dataset.sid;
+      const s = BY_ID[sid];
+      const ghost = chip.cloneNode(true);
+      ghost.classList.add('pghost');
+      document.body.appendChild(ghost);
+      let live = null, moved = false;
+      const move = (ev) => {
+        moved = true;
+        ghost.style.left = (ev.clientX - 24) + 'px';
+        ghost.style.top = (ev.clientY - 16) + 'px';
+        const r = svg.getBoundingClientRect();
+        const inside = ev.clientX > r.left && ev.clientX < r.right && ev.clientY > r.top && ev.clientY < r.bottom;
+        if (inside) {
+          const m = planXY(ev);
+          const [L, W] = [s.l, s.w];
+          let x = Math.max(0, Math.min(DECK.L - L, snap(m.x - L / 2)));
+          let z = Math.max(0, Math.min(DECK.W - W, snap(m.z - W / 2)));
+          ({ x, z } = magnet(planTruck, planLayer, live ? live.key : null, x, z, L, W, sid));
+          if (!live) { live = { key: 'p' + (++seq), sid, truck: planTruck, x, z, rot: false, layer: planLayer }; placed.push(live); }
+          else { live.x = x; live.z = z; }
+          selKey = live.key;
+          drawPlan();
+        } else if (live) { placed = placed.filter((p) => p !== live); live = null; selKey = null; drawPlan(); }
+        ev.preventDefault();
+      };
+      const up = () => {
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+        ghost.remove();
+        if (live) settle(live, null);
+        if (!moved && !live) {
+          // puudutus: paiguta esimesse vabasse kohta
+          const spot = findSpot(planTruck, planLayer, s.l, s.w, sid) || findSpot(planTruck, planLayer, s.w, s.l, sid);
+          if (spot) {
+            const rot = !findSpot(planTruck, planLayer, s.l, s.w, sid);
+            placed.push({ key: 'p' + (++seq), sid, truck: planTruck, x: spot.x, z: spot.z, rot, layer: planLayer });
+          } else flash('Sellel kihil pole enam vaba põrandat. Vali teine kiht või teine auto.');
+        }
+        refresh(); renderPlanUI();
+      };
+      document.addEventListener('pointermove', move, { passive: false });
+      document.addEventListener('pointerup', up);
+      e.preventDefault();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (!manual) return;
+      if ((e.key === 'r' || e.key === 'R') && selKey) {
+        const p = placed.find((x) => x.key === selKey);
+        if (BY_ID[p.sid].tube) return;
+        p.rot = !p.rot;
+        const [L, W] = dimsOf(p);
+        p.x = Math.min(p.x, DECK.L - L); p.z = Math.min(p.z, DECK.W - W);
+        refresh(); renderPlanUI();
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selKey && document.activeElement.tagName !== 'INPUT') {
+        placed = placed.filter((x) => x.key !== selKey); selKey = null; refresh(); renderPlanUI();
+      }
+    });
+
+    function flash(t) {
+      document.getElementById('report').innerHTML =
+        `<div class="scorebox no"><div class="st" style="margin:0">${t}</div></div>`;
+    }
+
+    // ——— Paneel ———
+    function chipHTML(s, where) {
+      return `<span class="chip${picked === s.id ? ' sel' : ''}" data-sid="${s.id}" data-where="${where}">
+        <span class="sw" style="background:${hex(MATS[s.m].color)}"></span>
+        <span><b>${s.nimi}</b><br><span class="kg">${s.mo} · ${fmt(s.kg)} kg</span></span></span>`;
+    }
+    function renderPool() {
+      const box = document.getElementById('pool');
+      if (!box) return;
+      const free = SHIPMENTS.filter((s) => !assign[s.id]);
+      box.innerHTML = free.length
+        ? free.map((s) => chipHTML(s, 'pool')).join('')
+        : '';
+    }
+    function renderTrucks() {
+      document.getElementById('trucks').innerHTML = Array.from({ length: fleet }, (_, k) => {
+        const i = k + 1, st = stateOf(i);
+        const v = answers[i] || (answers[i] = { kg: '', ldm: '', kgp: '', ldmp: '' });
+        const kgp = num(v.kgp), ldmp = num(v.ldmp);
+        const bar = (val) => `<div class="bar">
+            <i class="${val !== null && val > 100 ? 'over' : ''}" style="width:${Math.min(100, Math.max(0, val || 0))}%"></i>
+            <u></u><span class="cap"></span></div>`;
+        const bay = manual
+          ? `<div class="bay" data-truck="${i}">${st.mine.length
+              ? st.mine.map((s) => `<span class="chip" data-sid="${s.id}" title="Klõpsa — üks tükk läheb terminali tagasi" style="cursor:pointer"><span class="sw" style="background:${hex(MATS[s.m].color)}"></span><span><b>${s.nimi}</b><br><span class="kg">${placed.filter((p) => p.truck === i && p.sid === s.id).length} / ${tukke(s)} tk</span></span></span>`).join('')
+              : '<span class="empty">Lastiruum on tühi — lao kaup vasakul plaanil.</span>'}</div>`
+          : `<div class="bay" data-truck="${i}">${st.mine.length
+              ? st.mine.map((s) => chipHTML(s, 'truck')).join('')
+              : '<span class="empty">Lohista saadetis siia</span>'}</div>`;
+        return `<div class="truck${manual && i === planTruck ? ' active' : ''}" id="tr${i}" data-truck="${i}">
+          <div class="thead"><b>Auto ${i}</b><span>${st.n} ${manual ? 'tükki laos' : 'saadetist'}</span></div>
+          ${bay}
+          <div class="fields">
+            <label>kaal, kg<input data-t="${i}" data-f="kg" value="${v.kg}" inputmode="decimal"></label>
+            <label>ldm<input data-t="${i}" data-f="ldm" value="${v.ldm}" inputmode="decimal"></label>
+            <label>kaalutäituvus, %<input data-t="${i}" data-f="kgp" value="${v.kgp}" inputmode="decimal"></label>
+            <label>mahutäituvus, %<input data-t="${i}" data-f="ldmp" value="${v.ldmp}" inputmode="decimal"></label>
+          </div>
+          <div class="bars">
+            <div class="b"><span>kaal</span>${bar(kgp)}</div>
+            <div class="b"><span>maht</span>${bar(ldmp)}</div>
+          </div>
+          <div class="fb" id="fb${i}"></div>
+        </div>`;
+      }).join('');
+
+      document.querySelectorAll('.fields input').forEach((el) => el.addEventListener('input', () => {
+        answers[Number(el.dataset.t)][el.dataset.f] = el.value;
+        const a = answers[Number(el.dataset.t)];
+        const bars = el.closest('.truck').querySelectorAll('.bar i');
+        [num(a.kgp), num(a.ldmp)].forEach((v, n) => {
+          bars[n].style.width = Math.min(100, Math.max(0, v || 0)) + '%';
+          bars[n].classList.toggle('over', v !== null && v > 100);
+        });
+      }));
+      document.getElementById('add').disabled = fleet >= MAX;
+      document.getElementById('del').disabled = fleet <= 1;
+    }
+
+    function build3D() {
+      return manual ? buildTrucks(manualTrucks()) : buildFleet(assign, fleet);
+    }
+    function refresh(animate, reframe) {
+      renderPool();
+      renderTrucks();
+      const cam = stage._camera.position.clone(), tgt = stage._controls.target.clone();
+      const had = !!stage._object;
+      const root = build3D();
+      stage.setObject(root);
+      if (!had || reframe) applyView();
+      else {
+        stage._camera.position.copy(cam);
+        stage._controls.target.copy(tgt);
+        stage._controls.update();
+      }
+      if (animate) animateLoad(root);
+    }
+
+    // ——— Automaatrežiimi lohistamine (kiibid paneelis) ———
+    function place(sid, truck) {
+      assign[sid] = truck;
+      picked = null;
+      refresh(false);
+    }
+    let drag = null;
+    document.addEventListener('pointerdown', (e) => {
+      if (manual) return;
+      const chip = e.target.closest('.chip');
+      if (!chip || chip.classList.contains('ghost')) return;
+      drag = { sid: chip.dataset.sid, where: chip.dataset.where, x: e.clientX, y: e.clientY, el: chip, moved: false };
+    });
+    document.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 7) return;
+      if (!drag.moved) {
+        drag.moved = true;
+        const g = drag.el.cloneNode(true);
+        g.classList.add('ghost');
+        g.style.width = drag.el.offsetWidth + 'px';
+        document.body.appendChild(g);
+        drag.ghost = g;
+        drag.el.style.opacity = '.35';
+      }
+      e.preventDefault();
+      drag.ghost.style.left = (e.clientX - 30) + 'px';
+      drag.ghost.style.top = (e.clientY - 18) + 'px';
+      const t = document.elementFromPoint(e.clientX, e.clientY);
+      document.querySelectorAll('.truck').forEach((x) => x.classList.toggle('drop', x === (t && t.closest('.truck'))));
+      const pl2 = document.getElementById('pool'); if (pl2) pl2.classList.toggle('drop', !!(t && t.closest('#pool')));
+    }, { passive: false });
+    document.addEventListener('pointerup', (e) => {
+      if (!drag) return;
+      const d = drag; drag = null;
+      document.querySelectorAll('.truck').forEach((x) => x.classList.remove('drop'));
+      const pl = document.getElementById('pool'); if (pl) pl.classList.remove('drop');
+      if (d.ghost) d.ghost.remove();
+      if (d.el) d.el.style.opacity = '';
+      if (d.moved) {
+        const t = document.elementFromPoint(e.clientX, e.clientY);
+        const truck = t && t.closest('.truck');
+        if (truck) return place(d.sid, Number(truck.dataset.truck));
+        if (t && t.closest('#pool')) return place(d.sid, 0);
+        return;
+      }
+      if (d.where === 'truck') return place(d.sid, 0);
+      picked = picked === d.sid ? null : d.sid;
+      renderPool(); renderTrucks();
+    });
+    document.addEventListener('click', (e) => {
+      if (manual) {
+        const ch = e.target.closest('#trucks .bay .chip[data-sid]');
+        if (ch) {
+          const tid = Number(ch.closest('.bay').dataset.truck), sid = ch.dataset.sid;
+          const mine = placed.filter((p) => p.truck === tid && p.sid === sid);
+          if (mine.length) {
+            const last = mine[mine.length - 1];
+            placed = placed.filter((p) => p !== last);
+            if (selKey === last.key) selKey = null;
+            refresh(); renderPlanUI();
+          }
+          return;
+        }
+        const tr = e.target.closest('#trucks .truck');
+        if (tr) {
+          // Klõps täidetavas lahtris ei tohi autokaarti uuesti joonistada —
+          // muidu asendatakse just fokuseeritud input uue elemendiga ja
+          // kirjutamine ei jõua kuhugi.
+          if (e.target.closest('.fields')) return;
+          const uus = Number(tr.dataset.truck);
+          if (uus === planTruck) return;
+          planTruck = uus; selKey = null; renderTrucks(); renderPlanUI();
+        }
+        return;
+      }
+      if (!picked) return;
+      const truck = e.target.closest('.truck');
+      if (truck && !e.target.closest('.chip') && !e.target.closest('input')) place(picked, Number(truck.dataset.truck));
+    });
+
+    // ——— Hindamine ja esitamine ———
+    let arvutused = { kokku: 0, oiged: 0 };
+
+    function gradeNumbers() {
+      arvutused = { kokku: 0, oiged: 0 };
+      for (let i = 1; i <= fleet; i++) {
+        const st = stateOf(i);
+        const box = document.getElementById('tr' + i), fb = document.getElementById('fb' + i);
+        if (!st.n) { fb.className = 'fb'; box.className = 'truck'; continue; }
+        const real = { kg: st.kg, ldm: st.ldm, kgp: st.kg / KANDEVOIME * 100, ldmp: st.ldm / LDM_MAX * 100 };
+        const a = answers[i] || {};
+        const rows = [
+          ['kaal', num(a.kg), real.kg, 1.5],
+          ['ldm', num(a.ldm), real.ldm, 0.2],
+          ['kaalutäituvus', num(a.kgp), real.kgp, 2],
+          ['mahutäituvus', num(a.ldmp), real.ldmp, 2],
+        ];
+        const bad = rows.filter((r) => r[1] === null || Math.abs(r[1] - r[2]) > r[3]);
+        arvutused.kokku += rows.length;
+        arvutused.oiged += rows.length - bad.length;
+        box.className = 'truck ' + (bad.length ? 'bad' : 'good');
+        fb.className = 'fb show';
+        fb.innerHTML = bad.length
+          ? `<span class="no">✗ ei klapi: ${bad.map((r) => r[0]).join(', ')}</span>`
+          : '<span class="yes">✓ kõik neli arvutust klapivad</span>';
+      }
+    }
+
+    function esita() {
+      gradeNumbers();
+      const used = Array.from({ length: fleet }, (_, k) => stateOf(k + 1)).filter((t) => t.n);
+      const puudu = manual ? SHIPMENTS.filter((s) => jaanud(s.id) > 0) : SHIPMENTS.filter((s) => !assign[s.id]);
+      const vead = manual ? placed.map((p) => probleem(p)).filter(Boolean) : [];
+      const heavy = used.filter((t) => t.kg > KANDEVOIME + 0.5);
+      // Laadimismeeter arvestatakse standardlaiuse 2,4 m järgi: 13,6 ldm =
+      // 32,64 m² põrandat. Kontroll kehtib mõlemas režiimis. Vale positiivne
+      // tulemus kadus sellega, et ldm loeb ainult kihil 0 seisvaid tükke.
+      const full = used.filter((t) => t.ldm > LDM_MAX + 0.01);
+      const jagatud = manual
+        ? SHIPMENTS.filter((s) => new Set(placed.filter((p) => p.sid === s.id).map((p) => p.truck)).size > 1)
+        : [];
+
+      const rida = [];
+      let p1 = 0, p2 = 0, p3 = 0;
+
+      if (!puudu.length && used.length) {
+        p1 = 25;
+        rida.push(['yes', 'Kogu kaup on veovahenditesse laaditud — terminali ei jäänud midagi maha.']);
+      } else {
+        const n = manual ? puudu.reduce((a, s) => a + jaanud(s.id), 0) + ' tükki' : puudu.length + ' saadetist';
+        const nimed = puudu.slice(0, 4).map((s) => s.nimi + ' (' + s.mo + ')').join('; ')
+          + (puudu.length > 4 ? ' jt' : '');
+        rida.push(['no', `Laadimata on ${n}: ${nimed}. Vedu ei saa alata, enne kui terminal on tühi.`]);
+      }
+
+      if (used.length && !heavy.length && !full.length && !vead.length && !jagatud.length) {
+        p2 = 25;
+        rida.push(['yes', 'Ükski auto ei ületa kandevõimet ega laadimismeetreid ja kaup on lastiruumis korrektselt paigutatud.']);
+      } else {
+        heavy.forEach((t) => rida.push(['no', `Auto ${t.i} ületab kandevõime 24 000 kg. Raske kaup tuleb jagada mitme veoühiku vahel.`]));
+        full.forEach((t) => rida.push(['no', `Auto ${t.i} ületab 13,6 ldm — lastiruumi põrand saab enne otsa kui kandevõime.`]));
+        if (vead.length) {
+          rida.push(['no', `Paigutuses on ${vead.length} viga (${[...new Set(vead)].join(', ')}). Punase äärega veosed kattuvad üksteisega, ulatuvad üle lastiruumi serva, seisavad teisel kihil ilma toeta või on torud, mis ei istu kahe alumise toru vahelises lohus.`]);
+        }
+      }
+
+      if (used.length <= MIN_AUTOSID && used.length && !puudu.length && !heavy.length && !full.length && !vead.length) {
+        p3 = 25;
+        rida.push(['yes', `Autode arv on väikseim võimalik. Ainult põrandapinda vaadates paistab, nagu oleks vaja nelja autot (${dec(KOGU_LDM, 2)} ldm ÷ 13,6 = ${dec(KOGU_LDM / LDM_MAX, 1)}) — aga see arvestus eeldab, et kogu kaup seisab põrandal. Virnastatavat kaupa on siin piisavalt, et sama kaup mahuks <b>${MIN_AUTOSID}</b> veoühikusse. Tühja jooksva auto eest maksab alati keegi.`]);
+      } else if (used.length > MIN_AUTOSID) {
+        rida.push(['warn', `Kasutad ${used.length} autot. Sama kaup mahub ${MIN_AUTOSID} veoühikusse — vaata, millist kaupa saaks <b>virna laduda</b> (madalad karbid ja alused lähevad teisele kihile) ning millisesse autosse jääb kõige rohkem põrandat üle.`]);
+      } else if (!puudu.length && used.length && used.length < MIN_AUTOSID) {
+        rida.push(['no', 'Autosid on liiga vähe — kogu kaup ei mahu nendesse ära.']);
+      } else if (puudu.length) {
+        rida.push(['warn', 'Autode arvu saab hinnata alles siis, kui kogu kaup on laaditud.']);
+      }
+
+      const toruAutod = [...new Set(placed.filter((p) => BY_ID[p.sid].tube).map((p) => p.truck))];
+      toruAutod.forEach((t) => {
+        const kihid = [0, 1, 2, 3].map((l) => placed.filter((p) => p.truck === t && BY_ID[p.sid].tube && p.layer === l).length);
+        const rida_ = kihid.filter((n) => n).join('+');
+        const read = kihid.filter((n) => n);
+        const kokku = kihid.reduce((a, b) => a + b, 0);
+        // Päris püramiid: iga järgmine rida täpselt ühe toru võrra kitsam.
+        const pyramiid = read.length >= 2 && read[0] <= 4
+          && read.every((n, i) => i === 0 || n === read[i - 1] - 1);
+        if (pyramiid && kokku === tukke(BY_ID.s6)) {
+          rida.push(['yes', `Auto ${t}: torud on püramiidis ${rida_} (alt üles) — iga toru toetub kahele alumisele, virn ei veere laiali ja koormus jaotub ühtlaselt.`]);
+        } else if (kokku) {
+          rida.push(['warn', `Auto ${t}: torud on kihtides ${rida_} (alt üles). Ümar kaup laotakse <b>püramiidi</b>: alumine rida kõige laiem ja iga järgmine rida ühe toru võrra kitsam. Toru ei püsi teise toru otsas — ta veereb kahe toru vahelisse lohku, seega iga ülemine toru istub kahe alumise vahel. Kümme toru annab virna <b>4+3+2+1</b> — alumine rida 4 × 0,6 = <b>2,4 m</b>, virna jalajälg 6 × 2,4 = 14,4 m² ehk 6,00 ldm. Torude peale muud kaupa laduda ei tohi.`]);
+        }
+      });
+
+      const p4 = arvutused.kokku ? Math.round(25 * arvutused.oiged / arvutused.kokku) : 0;
+      if (arvutused.kokku && arvutused.oiged === arvutused.kokku) {
+        rida.push(['yes', 'Kaal, laadimismeetrid ja mõlemad täituvused on kõigil autodel õigesti arvutatud.']);
+      } else if (arvutused.kokku) {
+        rida.push(['warn', `Arvutustest on õiged ${arvutused.oiged} / ${arvutused.kokku}. Autokaardil on märgitud, millised read ei klapi — kontrolli eraldi põrandapinda, jagajat ja täituvuse valemit.`]);
+      } else {
+        rida.push(['no', 'Ükski auto pole veel täidetud, seega arvutusi hinnata ei saa.']);
+      }
+
+      if (jagatud.length) {
+        rida.push(['no', `Saadetis${jagatud.length > 1 ? 'i' : ''} ${jagatud.map((s) => '„' + s.nimi + ' · ' + s.mo + '“').join(', ')} oled jaganud mitme auto vahel. Lastiruumi mõõtude järgi see mahub, aga laadimises kehtib põhimõte, et <b>üks kaup on üks saadetis ja liigub ühes veoühikus</b>. Jagatud saadetis on kauba kadumise mõttes riskikoht: osa kaubast võib jääda maha, sattuda valesse terminali või jõuda kohale eri aegadel ning saatedokumendid ei kata enam üht tervikut.`]);
+      }
+
+      const skoor = p1 + p2 + p3 + p4;
+      const ok = skoor >= 90;
+      if (ok) {
+        rida.push(['yes', 'Peamine järeldus: piiravaks teguriks on siin <b>maht, mitte kaal</b> — kaubaruum saab täis enne, kui kandevõime ammendub. Just seepärast tuleb laadimismeetrid alati eraldi välja arvutada, mitte usaldada ainult kilogramme.']);
+      }
+
+      document.getElementById('report').innerHTML = `
+        <div class="scorebox ${ok ? 'ok' : 'no'}">
+          <div class="n">${skoor}<small> / 100</small></div>
+          <div class="st">${window.SCORM.aktiivne
+            ? 'Tulemus on Moodle’isse salvestatud' + (ok ? ' ja ülesanne märgitud sooritatuks.' : '. Ülesande võid uuesti esitada.')
+            : 'Tulemus on näha ainult sellel lehel ja seda ei salvestata.'}</div>
+          <ul class="rep">${rida.map(([k, t]) => `<li class="${k}"><span class="i">${k === 'yes' ? '✓' : k === 'no' ? '✗' : '△'}</span><span>${t}</span></li>`).join('')}</ul>
+        </div>`;
+      document.getElementById('submit').textContent = window.SCORM.aktiivne ? 'Esita uuesti' : 'Kontrolli uuesti';
+      window.SCORM.tulemus(ok, skoor);
+      if (manual) drawPlan();
+    }
+
+    document.getElementById('add').addEventListener('click', () => {
+      if (fleet >= MAX) return;
+      fleet++; refresh(false, true);
+      if (manual) renderPlanUI();
+    });
+    document.getElementById('del').addEventListener('click', () => {
+      if (fleet <= 1) return;
+      SHIPMENTS.forEach((s) => { if (assign[s.id] === fleet) assign[s.id] = 0; });
+      placed = placed.filter((p) => p.truck !== fleet);
+      fleet--; planTruck = Math.min(planTruck, fleet);
+      refresh(false, true);
+      if (manual) renderPlanUI();
+    });
+    if (!window.SCORM.aktiivne) document.getElementById('submit').textContent = 'Kontrolli lahendust';
+    document.getElementById('submit').addEventListener('click', esita);
+    document.getElementById('replay').addEventListener('click', () => animateLoad(stage._object));
+    window.addEventListener('resize', () => { if (manual) drawPlan(); });
+
+    refresh(false, true);
+    renderPlanUI();
+    setTimeout(drawPlan, 30);
+  </script>
+<script>
+  (function(){
+    function peida(){
+      if(window.NAITA_EKSPORDINUPPE) return;
+      document.querySelectorAll('three-d-stage').forEach(function(el){
+        var r=el.shadowRoot; if(!r) return;
+        var tb=r.querySelector('.toolbar'); if(tb) tb.style.display='none';
+      });
+    }
+    if(window.customElements) customElements.whenDefined('three-d-stage').then(function(){setTimeout(peida,0);});
+    document.addEventListener('DOMContentLoaded',function(){setTimeout(peida,300);});
+    setTimeout(peida,1500);
+  })();
+</script>
+</body>
+</html>
